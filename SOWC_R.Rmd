@@ -1,0 +1,295 @@
+---
+title: "Is education spending the solution to protecting children in Asian countries?"
+author:
+  - "Kevin Yamada"
+  - "Emilia Astani"
+output:
+  pdf_document:
+    number_sections: false
+fontsize: 12pt
+header-includes:
+  - \usepackage{setspace}
+  - \onehalfspacing
+  - \usepackage[margin=1in]{geometry}
+---
+
+**Introduction**
+
+The goal of our analysis is to gain insights into child protection by observing their education completion rates. By drawing connections between social issues and education, we outline the problem and offer a solution by suggesting that spending more on education increases education completion rates which will potentially decrease issues such as child marriage, child labour, detention, adolescent birth rates, etc. For this article we use data from The State of the World's Children 2024 Statistical Compendium provided by UNICEF and we focus on the statistic of Upper Secondary Education (USE) Completion Rate-- the Canadian equivalent of a high school degree. We provide the justification in order to increase government spending on education with the goal of protecting children.
+
+\newpage
+
+**Child Labour**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(countrycode)
+library(readxl)
+library(ggplot2)
+
+data <- data <- readxl::read_excel("sta313 a2.xlsx")
+data$continent <- countrycode(data$Country, origin = "country.name", destination = "continent")
+
+clean_num <- function(x) {
+  x <- as.character(x)
+  x[x == "-"] <- NA
+  as.numeric(x)
+}
+
+# --- Standardize and clean all key columns ---
+data_std <- data %>%
+  rename(
+    use_completion  = `USE completion rate`,
+    bully_m  = `bullying (M)`,
+    bully_f  = `bullying (F)`, 
+    cm_m     = `child marriage (M)`,
+    cm_f     = `child marriage (F)`,
+    cl       = 'child labour'
+    # population = population   # uncomment/adjust if your column name differs
+  ) %>%
+  mutate(
+    use_completion  = clean_num(use_completion),
+    bully_m  = clean_num(bully_m),
+    bully_f  = clean_num(bully_f),
+    cm_m     = clean_num(cm_m),
+    cm_f     = clean_num(cm_f),
+    cl       = clean_num(cl),
+    population = as.numeric(population),
+  )
+
+data_long <- data_std %>%
+  select(Country, continent, population,
+         use_completion, bully_m, bully_f, cm_m, cm_f,) %>%
+  pivot_longer(
+    cols = c(bully_m, bully_f, cm_m, cm_f),
+    names_to = c("outcome", "gender"),
+    names_pattern = "(bully|cm)_(m|f)",
+    values_to = "rate"
+  ) %>%
+  mutate(
+    outcome = recode(outcome, bully = "Bullying", cm = "Child Marriage"),
+    gender  = recode(gender,  m = "Male", f = "Female")
+  )
+
+#Child Labour vs USE Completion Plot#
+ggplot(data_std, aes(x = use_completion, y = cl, size = population, color = continent)) +
+  geom_point(alpha = 0.6, na.rm = TRUE) +
+  geom_point(
+    data = subset(data_std,
+                  Country %in% c("Bangladesh", "Uzbekistan")),
+    aes(x = use_completion, y = cl),
+    shape = 21,          
+    size = 8,            
+    stroke = 1.3,        
+    color = "black",     
+    fill = NA            
+  ) +
+  geom_smooth(
+    aes(x = use_completion, y = cl, group = 1),
+    inherit.aes = FALSE,
+    method = "lm", se = FALSE, color = "black", linetype = "dashed",
+    show.legend = FALSE
+  ) +
+  geom_text(data = subset(data_std,
+                          Country %in% c("Bangladesh", "Uzbekistan")),
+            aes(label = Country),
+            vjust = -2,
+            size = 3,
+            color = "black",
+            fontface = "bold") +
+  scale_x_continuous(limits = c(0, 100)) +
+  scale_y_continuous(limits = c(0, 100)) +
+  scale_size_continuous(
+    name = "Population (thousands)",
+    range = c(2, 14),                 
+    breaks = c(3, 3.5, 4, 5),             
+    labels = c("1K", "3k", "10K", "100K")
+  ) +
+  guides(
+    size = guide_legend(
+      title = "Population (thousands)",
+      override.aes = list(
+        shape = 21,
+        fill = "white",
+        colour = "grey30",
+        size = c(2, 5, 8, 11)   # manually chosen bubble sizes for legend
+      )
+    )
+  ) +
+  labs(
+    x = "Upper Secondary Education Completion (%)",
+    y = "Child Labour (%)",
+    color = "Continent",
+    title = "Child Labour vs. Education Completion by Country"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical",
+    legend.key.size = unit(0.4, "lines"),
+    legend.text  = element_text(size = 8),
+    legend.title = element_text(size = 9, face = "bold"),
+    legend.spacing.x = unit(0.1, "cm"),
+    legend.margin = margin(t = 0, b = 0, l = 0, r = 0)
+  )
+
+
+```
+
+When posed with the question of what prevents students from completing their upper secondary education, one of the factors that inhibits students is an obligation to work. As children take on the responsibility to generate income, their available time to spend towards their education naturally decreases. UNICEF provides the child labour percentage rates of countires in 2023 which is plotted against the the USE Completion Rate with each plot point representing a country, as seen above. The plot shows a negative relationship between the two using the dotted trend line which affirms the intuition that higher child labour rates are accompanied by lower rates of completed education. The points have also been colored by continent for further insights into where the specific problem of child labour is most prevalent. The majority of countries on the left end of the plot are African with higher rates of child labour and lower USE Completion Rates and a large disparity within Asian countries is prevalent.
+
+Note that not all countries are plotted above, only the ones that had complete data for Child Labour Rate and USE Completion Rate. That is why for this plot and the next Uzbekistan will serve as an example for high performance in USE Completion in Asia. Despite the trends, both countries seem to be outliers as Bangladesh sits below the trend line and Uzbekistan sits above. This means that Bangladesh has low child labor rates for its poor performance in USE Completion while Uzbekistan has high child labour rates for its high preformance in USE completion. This reminds us that this plot is not showing causality but simply the trend or relationship between the two factors.
+
+It must be recognized that different countries with varying population sizes have different realities in which they operate. Larger populations have greater demands on their education systems which can lead to strain and poor support in endeavours of completion. These strains can be exacerbated by inadequate funding and limited resources. That is why each point has been adjusted by size to represent the relative population for each country.
+
+**Child Marriage**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p_cm <- data_long %>%
+  filter(outcome == "Child Marriage") %>%
+  ggplot(aes(
+    x = use_completion,
+    y = rate,
+    color = gender,          
+    size  = population       
+  )) +
+  geom_point(alpha = 0.6, na.rm = TRUE) +
+  geom_point(
+    data = subset(data_long,
+                  Country %in% c("Bangladesh", "Uzbekistan") &
+                    outcome == "Child Marriage"),
+    aes(x = use_completion, y = rate),
+    shape = 21,         
+    size = 8,           
+    stroke = 1.3,       
+    color = "black",    
+    fill = NA            
+  ) +
+  geom_smooth(
+    aes(group = gender, color = gender),   
+    method = "lm",
+    se = FALSE,
+    linetype = "dashed",
+    linewidth = 1,
+    show.legend = FALSE
+  ) +
+  geom_text(data = subset(data_long,
+                          Country %in% c("Bangladesh", "Uzbekistan") &
+                            outcome == "Child Marriage"),
+            aes(label = Country),
+            vjust = -2,
+            size = 3,
+            color = "black",
+            fontface = "bold") +
+  scale_x_continuous(limits = c(0, 100), name = "Upper Secondary Education Completion (%)") +
+  scale_y_continuous(limits = c(0, 100), name = "Child Marriage (%)") +
+  scale_size_continuous(
+    name   = "Population (thousands)",
+    range  = c(2, 14),
+    breaks = c(1e3, 1e4, 1e5, 4e5),      # 1K, 10K, 100K, 400K (thousands)
+    labels = c("1K", "10K", "100K", "400K")
+  ) +
+  guides(
+    size  = guide_legend(override.aes = list(shape = 21, fill = "white", colour = "grey30",
+                                             size = c(4, 7, 10, 13))),
+    color = guide_legend(order = 1),
+    shape = guide_legend(order = 1)
+  ) +
+  labs(
+    title = "Child Marriage vs. Education Completion by Country",
+    color = "Gender", 
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    legend.box = "vertical",
+    legend.key.size = unit(0.4, "lines"),
+    legend.text  = element_text(size = 8),
+    legend.title = element_text(size = 9, face = "bold"),
+    legend.spacing.x = unit(0.1, "cm"),
+    legend.margin = margin(t = 0, b = 0, l = 0, r = 0)
+  )
+
+p_cm
+
+```
+
+Besides the obligation to work, child marriages are another cultural duty that some children are upheld to. Along with marriage typically comes the responsibilities of starting a family and other cultural norms about what the role of a wedded person looks like. These roles can also be vastly different between men and women. A lot of the time, school becomes secondary to the needs of this new stage in life.
+
+In the above plot, USE Completion is compared to Child Marriage Rates between the two genders. The trend line is present for each gender and the points are adjusted by size according to population sizes. Here a clear difference is apparent in the effect child marriage has on education completion between the two genders. For women, this relationship is evidently negative, higher marriage rates means lower USE Completion Rates. For men, this relationship is non-existent as the trend line lays flat. Not only does child marriage for men not effect their schooling but child marriage in men is a a rare issue since the trend line lies close to 0. This means there are very few cases of child marriage in men.
+
+Looking at the counties of interest, we can see a large gap between genders for this social issue while in Uzbekistan the gap is smaller. This might suggest that countries with greater disparity in social issues dealing with gender may have lower performance in education completion.
+
+**Adolescent Birth Rate**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(readr); library(dplyr); library(ggplot2)
+
+df <- read_csv("SOWC_cleaned (1).csv", show_col_types = FALSE)
+
+fix_names <- function(x){x <- gsub("Viet Nam","Vietnam",x,fixed=TRUE); x <- gsub("Republic of Korea","South Korea",x,fixed=TRUE); x <- gsub("Democratic People’s Republic of Korea","North Korea",x,fixed=TRUE); x <- gsub("Iran \\(Islamic Republic of\\)","Iran",x); x <- gsub("Syrian Arab Republic","Syria",x,fixed=TRUE); x <- gsub("State of Palestine","Palestine",x,fixed=TRUE); x <- gsub("Lao People’s Democratic Republic","Laos",x,fixed=TRUE); x <- gsub("Türkiye","Turkey",x,fixed=TRUE); x}
+df$country_std <- fix_names(df$country)
+
+africa <- c("Algeria","Angola","Benin","Botswana","Burkina Faso","Burundi","Cabo Verde","Cameroon","Central African Republic","Chad","Comoros","Congo","Congo, Dem. Rep.","Côte d’Ivoire","Djibouti","Egypt","Equatorial Guinea","Eritrea","Eswatini","Ethiopia","Gabon","Gambia","Ghana","Guinea","Guinea-Bissau","Kenya","Lesotho","Liberia","Libya","Madagascar","Malawi","Mali","Mauritania","Mauritius","Morocco","Mozambique","Namibia","Niger","Nigeria","Rwanda","Sao Tome and Principe","Senegal","Seychelles","Sierra Leone","Somalia","South Africa","South Sudan","Sudan","Tanzania","Togo","Tunisia","Uganda","Zambia","Zimbabwe")
+americas <- c("Antigua and Barbuda","Argentina","Bahamas","Barbados","Belize","Bolivia","Brazil","Canada","Chile","Colombia","Costa Rica","Cuba","Dominica","Dominican Republic","Ecuador","El Salvador","Grenada","Guatemala","Guyana","Haiti","Honduras","Jamaica","Mexico","Nicaragua","Panama","Paraguay","Peru","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Suriname","Trinidad and Tobago","United States","Uruguay","Venezuela")
+asia <- c("Afghanistan","Armenia","Azerbaijan","Bahrain","Bangladesh","Bhutan","Brunei Darussalam","Cambodia","China","Cyprus","Georgia","India","Indonesia","Iran","Iraq","Israel","Japan","Jordan","Kazakhstan","Kuwait","Kyrgyzstan","Laos","Lebanon","Malaysia","Maldives","Mongolia","Myanmar","Nepal","North Korea","Oman","Pakistan","Palestine","Philippines","Qatar","South Korea","Saudi Arabia","Singapore","Sri Lanka","Syria","Tajikistan","Thailand","Timor-Leste","Turkey","Turkmenistan","United Arab Emirates","Uzbekistan","Vietnam","Yemen")
+europe <- c("Albania","Andorra","Austria","Belarus","Belgium","Bosnia and Herzegovina","Bulgaria","Croatia","Czechia","Denmark","Estonia","Finland","France","Germany","Greece","Hungary","Iceland","Ireland","Italy","Kosovo","Latvia","Liechtenstein","Lithuania","Luxembourg","Malta","Moldova","Monaco","Montenegro","Netherlands","North Macedonia","Norway","Poland","Portugal","Romania","Russia","San Marino","Serbia","Slovakia","Slovenia","Spain","Sweden","Switzerland","Ukraine","United Kingdom")
+oceania <- c("Australia","Fiji","Kiribati","Marshall Islands","Micronesia, Fed. Sts.","Nauru","New Zealand","Palau","Papua New Guinea","Samoa","Solomon Islands","Tonga","Tuvalu","Vanuatu")
+
+continent_of <- function(cn){if(cn %in% africa) "Africa" else if(cn %in% americas) "Americas" else if(cn %in% asia) "Asia" else if(cn %in% europe) "Europe" else if(cn %in% oceania) "Oceania" else NA_character_}
+df$continent_full <- vapply(df$country_std, continent_of, character(1))
+df <- df %>% filter(!is.na(continent_full))
+df$continent_full <- factor(df$continent_full, levels=c("Africa","Americas","Asia","Europe","Oceania"))
+
+df$population_millions <- as.numeric(df$population_millions)
+df$population_thousands <- df$population_millions * 1000
+
+marks <- df %>% filter(country %in% c("Republic of Korea","South Korea","Bangladesh"))
+labels_df <- marks %>% mutate(nudge = ifelse(grepl("Korea", country), -1.8, 0.8), hjustv = ifelse(grepl("Korea", country), 1, 0))
+
+p1dat <- df %>% filter(!is.na(upper_secondary_completion_pct), !is.na(adolescent_birth_rate), !is.na(population_thousands))
+b1 <- pretty(p1dat$population_thousands, n = 4)
+
+ggplot(p1dat, aes(upper_secondary_completion_pct, adolescent_birth_rate, color=continent_full)) +
+  geom_point(aes(size=population_thousands), shape=16, alpha=.85) +
+  geom_smooth(method="lm", se=FALSE, color="black", alpha=.25) +
+  geom_point(data=marks, aes(upper_secondary_completion_pct, adolescent_birth_rate), inherit.aes=FALSE, shape=21, fill=NA, color="black", stroke=1.6, size=8) +
+  geom_text(data=labels_df, aes(upper_secondary_completion_pct, adolescent_birth_rate, label=country, hjust=hjustv), inherit.aes=FALSE, size=3.2, vjust=-0.6, nudge_x=labels_df$nudge, fontface="bold") +
+  scale_x_continuous(expand=expansion(mult=c(0.02,0.10))) +
+  coord_cartesian(clip="off") +
+  labs(title="Completion vs Adolescent Fertility", subtitle="Higher upper-secondary completion aligns with lower birth rates (15–19)", x="Upper secondary completion (%)", y="Adolescent birth rate (15–19) per 1,000", color="Continent", size="Population (thousands)") +
+  scale_size_area(breaks=b1, labels=round(b1,0), max_size=12, guide=guide_legend(override.aes=list(shape=16, colour="grey20"))) +
+  theme_minimal(base_size=12)
+
+```
+
+Furthermore, our first figure plot shows the upper secondary education completion (%) on the x axis against the adolescent birth rate (15-19) (%) on the y axis. The points are coloured by continent and sized by population (millions) with South Korea and Bangladesh being highlighted as the countries of interest in Asia. Our focus is on Asia due to the large disparity in USE Completion as seen by the spread of the points along the x axis. Exploring different social issues within the countries of interest will help us gain more insights about how they affect education completion.As seen in the figure, the worldwide trend is negative which suggests that countries with higher upper secondary completion rates tend to have lower adolescent births. Specifically within Asia, Bangladesh and South Korea have a large disparity in this area with South Korea being the country with high completion and low fertility while Bangladesh has relatively low completion with high fertility. This aligns with the idea that education decreases adolescent fertility by delaying early marriages and childbearing since time is spent in school pursuing an education instead. Of course, there are situations where children do not have access to education so they are forced to mature much more quickly but by improving access to education, children can instead chase their aspirations in a school setting.
+
+The colour encodings also help identify which continents overall require more attention and funding as African countries have a lower completion rate and higher adolescent fertility rate on average than European countries for example. The population encoding is to show a limitation because a country with more people must spend more given the same GDP so using size, we can draw more attention to the countries that require more attention because of this fact.
+
+\newpage
+
+**A Potential Solution**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+p2dat <- df %>% filter(!is.na(upper_secondary_completion_pct), !is.na(edu_spend_gdp_pct), !is.na(population_thousands))
+b2 <- pretty(p2dat$population_thousands, n = 4)
+
+ggplot(p2dat, aes(upper_secondary_completion_pct, edu_spend_gdp_pct, color=continent_full)) +
+  geom_point(aes(size=population_thousands), shape=16, alpha=.85) +
+  geom_smooth(method="lm", se=FALSE, color="black", alpha=.25) +
+  geom_point(data=marks, aes(upper_secondary_completion_pct, edu_spend_gdp_pct), inherit.aes=FALSE, shape=21, fill=NA, color="black", stroke=1.6, size=8) +
+  geom_text(data=labels_df, aes(upper_secondary_completion_pct, edu_spend_gdp_pct, label=country, hjust=hjustv), inherit.aes=FALSE, size=3.2, vjust=-0.6, nudge_x=labels_df$nudge, fontface="bold") +
+  scale_x_continuous(expand=expansion(mult=c(0.02,0.10))) +
+  coord_cartesian(clip="off") +
+  labs(title="Completion vs Education Spending (% of GDP)", subtitle="Systems investing a larger share of GDP in education tend to complete more", x="Upper secondary completion (%)", y="% of GDP spent on education", color="Continent", size="Population (thousands)") +
+  scale_size_area(breaks=b2, labels=round(b2,0), max_size=12, guide=guide_legend(override.aes=list(shape=16, colour="grey20"))) +
+  theme_minimal(base_size=12)
+
+
+```
+
+Therefore, the solution has to involve increasing school participation and we suggest through our figure that more funding is required. Specifically this figure uses completion rate on the x axis and education spending as % of GDP on the y axis to ensure that overall economic effort is captured rather than just government expenditure. We use GDP instead of government spending because GDP captures the financial effort relative to the economy as a whole and high government spending doesn’t always equate to more resources if the spending is already low. While the relationship is moderately positive, the overall trend still claims that countries with a larger proportion of their economy dedicated to education spending often have a higher completion rate. The example given is the same two Asian countries Bangladesh and South Korea where it can be seen that South Korea spends significantly more on education than Bangladesh and therefore achieves a much higher upper secondary completion rate. The implication of this example shows that in order to achieve a higher completion rate, more fiscal effort must be put into the education system to open opportunities for children to learn instead of work.
+
+In conclusion, protecting adolescents starts with the classroom and by increasing effort in education expenditure, children can be kept away from work and given opportunities to pursue their dreams and aspirations. The data supports this as countries with higher completion often have a lower adolescent fertility rate, lower child labour rates, lower child marriage rates. Additionally, countries with a larger GDP dedicated to education tend to have a higher completion rate .
